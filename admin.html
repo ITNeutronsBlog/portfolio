@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1c23">
+    <title>Admin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <!-- Side Panel -->
+        <div class="side-panel">
+            <div class="logo-container">
+                <button id="toggle-sidebar" class="toggle-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h2>Admin Panel</h2>
+            </div>
+            <nav class="nav-menu">
+                <ul>
+                    <li class="nav-item active" data-section="overview">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Overview</span>
+                    </li>
+                    <li class="nav-item" data-section="charts">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Charts</span>
+                    </li>
+                    <li class="nav-item" data-section="performance">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Performance</span>
+                    </li>
+                    <li class="nav-item" data-section="activity">
+                        <i class="fas fa-history"></i>
+                        <span>Activity</span>
+                    </li>
+                    <li class="nav-item" data-section="errors">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Errors</span>
+                    </li>
+                    <li class="nav-item" data-section="email-stats">
+                        <i class="fas fa-envelope"></i>
+                        <span>Email Stats</span>
+                    </li>
+                    <li class="nav-item" data-section="company-stats">
+                        <i class="fas fa-building"></i>
+                        <span>Company Stats</span>
+                    </li>
+                    <li class="nav-item" data-section="hr-visitors">
+                        <i class="fas fa-users"></i>
+                        <span>HR Visitors</span>
+                    </li>
+                </ul>
+            </nav>
+            <div class="nav-footer">
+                <button id="logout-btn" class="admin-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="section-container" id="overview" style="display: block;">
+                <h1>Overview</h1>
+                <!-- Overview Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <i class="fas fa-eye"></i>
+                        <div class="stat-info">
+                            <h3>Total Visits</h3>
+                            <p id="total-visits">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-file-download"></i>
+                        <div class="stat-info">
+                            <h3>Resume Downloads</h3>
+                            <p id="resume-downloads">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-clock"></i>
+                        <div class="stat-info">
+                            <h3>Avg. Read Time</h3>
+                            <p id="avg-read-time">0 min</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-mobile-alt"></i>
+                        <div class="stat-info">
+                            <h3>Mobile Users</h3>
+                            <p id="mobile-percentage">0%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-container" id="charts">
+                <h1>Charts</h1>
+                <!-- Charts Section -->
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3>Daily Visits</h3>
+                        <canvas id="visitsChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Device Distribution</h3>
+                        <canvas id="deviceChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Section Views</h3>
+                        <canvas id="sectionChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Scroll Depth</h3>
+                        <canvas id="scrollChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-container" id="performance">
+                <h1>Performance</h1>
+                <!-- Performance Metrics -->
+                <div class="performance-section">
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <h4>Average Load Time</h4>
+                            <p id="avg-load-time">0ms</p>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Average DOM Ready</h4>
+                            <p id="avg-dom-ready">0ms</p>
+                        </div>
+                        <div class="metric-card">
+                            <h4>Average First Paint</h4>
+                            <p id="avg-first-paint">0ms</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-container" id="activity">
+                <h1>Activity</h1>
+                <!-- Recent Activity -->
+                <div class="recent-activity">
+                    <div class="activity-filters">
+                        <button class="filter-btn active" data-type="all">All</button>
+                        <button class="filter-btn" data-type="visit">Visits</button>
+                        <button class="filter-btn" data-type="download">Downloads</button>
+                        <button class="filter-btn" data-type="error">Errors</button>
+                    </div>
+                    <div class="activity-list" id="activity-list"></div>
+                </div>
+            </div>
+
+            <div class="section-container" id="errors">
+                <h1>Errors</h1>
+                <!-- Error Log -->
+                <div class="error-log">
+                    <div class="error-list" id="error-list"></div>
+                </div>
+            </div>
+
+            <div class="section-container" id="email-stats">
+                <h1>Email Statistics</h1>
+                <!-- Email Stats Section -->
+                <div class="card">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <h3>Total Email Clicks</h3>
+                            <p id="total-email-clicks">0</p>
+                        </div>
+                    </div>
+                    <div class="recent-activity">
+                        <h3>Recent Email Interactions</h3>
+                        <div id="recent-emails" class="activity-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-container" id="company-stats">
+                <h1>Company Statistics</h1>
+                <!-- Company Stats Section -->
+                <div class="card">
+                    <div class="stats-table">
+                        <table id="company-stats-table">
+                            <tr>
+                                <th>Company</th>
+                                <th>Views</th>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="recent-activity">
+                        <h3>Recent Company Interactions</h3>
+                        <div id="recent-company-interactions" class="activity-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-container" id="hr-visitors">
+                <h1>HR Visitors</h1>
+                <!-- HR Visitors Section -->
+                <div class="card">
+                    <div class="section-header">
+                        <button class="admin-btn" id="download-hr-csv">
+                            <i class="fas fa-download"></i> Download CSV
+                        </button>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <h3>Total HR Visitors</h3>
+                            <p id="total-hr-visitors">0</p>
+                        </div>
+                        <div class="stat-item">
+                            <h3>Most Common Role</h3>
+                            <p id="most-common-role">-</p>
+                        </div>
+                        <div class="stat-item">
+                            <h3>Most Active Company</h3>
+                            <p id="most-active-company">-</p>
+                        </div>
+                        <div class="stat-item">
+                            <h3>Most Common Source</h3>
+                            <p id="most-common-source">-</p>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Company</th>
+                                    <th>Email</th>
+                                    <th>Contact</th>
+                                    <th>Role</th>
+                                    <th>Company Size</th>
+                                    <th>Hiring For</th>
+                                    <th>Source</th>
+                                    <th>Contact Preference</th>
+                                    <th>Device</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hr-visitors-table">
+                                <!-- Data will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html> 
