@@ -19,13 +19,9 @@ function checkDependencies() {
 let db = null;
 
 function loadFirebaseConfig() {
-    // Check if we're running locally (file://) or on a server (http://)
-    const isLocalEnvironment = window.location.protocol === 'file:';
-    
-    if (isLocalEnvironment) {
-        // For local development, use local config
-        console.log('Using local config');
-        return Promise.resolve({
+    // Always use local config to avoid the HTTP fetch issues
+    console.log('Using local Firebase config');
+    return Promise.resolve({
     apiKey: "AIzaSyB1ZIQp5j_hBXJM2uC4_tJg96ZKLj5_JB8",
     authDomain: "portfolio-cac4b.firebaseapp.com",
     databaseURL: "https://portfolio-cac4b-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -34,16 +30,7 @@ function loadFirebaseConfig() {
     messagingSenderId: "560361647150",
     appId: "1:560361647150:web:10af52ec57c5a7e53a03bf",
     measurementId: "G-8XWC6F64FC"
-        });
-    } else {
-        // For server environment, fetch from secure endpoint
-        return fetch('/config/firebase-config.json')
-            .then(response => response.json())
-            .catch(error => {
-                console.error('Error loading Firebase config:', error);
-                return null;
-            });
-    }
+    });
 }
 
 // Initialize Firebase
