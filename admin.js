@@ -111,7 +111,8 @@ async function initializeDashboard() {
             { name: "Email Stats", fn: setupEmailStats },
             { name: "Company Stats", fn: setupCompanyStats },
             { name: "HR Stats", fn: setupHRStats },
-            { name: "Portfolio Editor", fn: setupPortfolioEditor }
+            { name: "Portfolio Editor", fn: setupPortfolioEditor },
+            { name: "Location Stats", fn: setupLocationStats }
         ];
         
         for (const setup of setupFunctions) {
@@ -2373,4 +2374,149 @@ function setupPortfolioEditor() {
     }
     
     return Promise.resolve();
+}
+
+// Setup location stats
+async function setupLocationStats() {
+    try {
+        // Reference to location data
+        const locationRef = db.ref('analytics/locationVisits');
+        
+        // Get location data
+        const snapshot = await locationRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('No location data available');
+            return;
+        }
+        
+        const locationData = snapshot.val();
+        const locationContainer = document.getElementById('location-stats-container');
+        
+        if (!locationContainer) {
+            console.error('Location stats container not found');
+            return;
+        }
+        
+        // Clear any existing content
+        locationContainer.innerHTML = '';
+        
+        // Create a heading
+        const heading = document.createElement('h3');
+        heading.textContent = 'Visitors by Location';
+        heading.className = 'stats-heading';
+        locationContainer.appendChild(heading);
+        
+        // Create a container for the map
+        const mapContainer = document.createElement('div');
+        mapContainer.id = 'world-map';
+        mapContainer.className = 'world-map';
+        locationContainer.appendChild(mapContainer);
+        
+        // Create a container for the location table
+        const tableContainer = document.createElement('div');
+        tableContainer.className = 'location-table-container';
+        locationContainer.appendChild(tableContainer);
+        
+        // Create a table for the location data
+        const table = document.createElement('table');
+        table.className = 'location-table';
+        tableContainer.appendChild(table);
+        
+        // Create table header
+        const thead = document.createElement('thead');
+        table.appendChild(thead);
+        
+        const headerRow = document.createElement('tr');
+        thead.appendChild(headerRow);
+        
+        ['Country', 'Visits', 'Percentage'].forEach(text => {
+            const th = document.createElement('th');
+            th.textContent = text;
+            headerRow.appendChild(th);
+        });
+        
+        // Create table body
+        const tbody = document.createElement('tbody');
+        table.appendChild(tbody);
+        
+        // Calculate total visits
+        let totalVisits = 0;
+        Object.values(locationData).forEach(count => {
+            if (typeof count === 'number') {
+                totalVisits += count;
+            }
+        });
+        
+        // Process location data and add to table
+        const locationEntries = Object.entries(locationData)
+            .filter(([country, count]) => typeof count === 'number')
+            .sort((a, b) => b[1] - a[1]); // Sort by visit count descending
+        
+        locationEntries.forEach(([country, count]) => {
+            const row = document.createElement('tr');
+            tbody.appendChild(row);
+            
+            // Country cell
+            const countryCell = document.createElement('td');
+            countryCell.textContent = getCountryName(country);
+            row.appendChild(countryCell);
+            
+            // Visits cell
+            const visitsCell = document.createElement('td');
+            visitsCell.textContent = count;
+            row.appendChild(visitsCell);
+            
+            // Percentage cell
+            const percentageCell = document.createElement('td');
+            const percentage = ((count / totalVisits) * 100).toFixed(1);
+            percentageCell.textContent = `${percentage}%`;
+            row.appendChild(percentageCell);
+        });
+        
+        // If you want to show cities within countries
+        // You can expand this to display city-level data
+        
+        // Optionally, initialize a world map visualization here
+        // This would require a mapping library like jVectorMap or Google Maps
+        
+        console.log('Location stats displayed successfully');
+    } catch (error) {
+        console.error('Error setting up location stats:', error);
+    }
+}
+
+// Helper function to convert country codes to names
+function getCountryName(countryCode) {
+    const countryCodes = {
+        'US': 'United States',
+        'GB': 'United Kingdom',
+        'CA': 'Canada',
+        'AU': 'Australia',
+        'IN': 'India',
+        'DE': 'Germany',
+        'FR': 'France',
+        'JP': 'Japan',
+        'CN': 'China',
+        'BR': 'Brazil',
+        'RU': 'Russia',
+        'ZA': 'South Africa',
+        'MX': 'Mexico',
+        'ES': 'Spain',
+        'IT': 'Italy',
+        'NL': 'Netherlands',
+        'SG': 'Singapore',
+        'SE': 'Sweden',
+        'CH': 'Switzerland',
+        'NO': 'Norway',
+        'DK': 'Denmark',
+        'FI': 'Finland',
+        'NZ': 'New Zealand',
+        'IE': 'Ireland',
+        'AT': 'Austria',
+        'BE': 'Belgium',
+        'KR': 'South Korea',
+        // Add more country codes as needed
+    };
+    
+    return countryCodes[countryCode] || countryCode;
 }

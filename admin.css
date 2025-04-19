@@ -1450,4 +1450,51 @@ canvas {
 .form-group textarea {
     width: 100%;
     box-sizing: border-box;
+}
+
+/* Location Stats Styles */
+.world-map {
+    width: 100%;
+    height: 300px;
+    margin-bottom: 1.5rem;
+    background-color: var(--card-bg);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.location-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+}
+
+.location-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.location-table th,
+.location-table td {
+    padding: 0.8rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.location-table th {
+    background-color: var(--card-bg);
+    color: var(--heading-color);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.location-table tbody tr:hover {
+    background-color: var(--hover-bg);
+}
+
+/* Make location stats card wider */
+#location-stats-container {
+    grid-column: span 2;
 } 
