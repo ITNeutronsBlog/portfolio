@@ -370,21 +370,6 @@
         </div>
     </div>
 
-    <!-- EmailJS SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-    <!-- Initialize EmailJS -->
-    <script>
-        (function() {
-            emailjs.init("wzG2b0o_PNnxUZxOI");
-        })();
-    </script>
-    <!-- Your custom script -->
-    <script src="script.js"></script>
-
     <!-- Cookie Consent Banner -->
     <div id="cookie-consent" class="cookie-consent">
         <div class="cookie-content">
@@ -446,5 +431,40 @@
             </div>
         </div>
     </div>
+
+    <!-- Kafka Messages Panel -->
+    <div id="kafka-panel" class="kafka-panel">
+        <div class="kafka-header">
+            <h3>Real-time Updates <span id="kafka-status" class="disconnected">Disconnected</span></h3>
+            <div class="kafka-controls">
+                <span>Messages received: <span id="kafka-counter">0</span></span>
+                <button id="kafka-toggle" class="kafka-toggle">Show/Hide</button>
+            </div>
+        </div>
+        <div class="kafka-content">
+            <div class="kafka-chart-container">
+                <canvas id="kafka-chart"></canvas>
+            </div>
+            <div id="kafka-messages" class="kafka-messages"></div>
+        </div>
+    </div>
+    
+    <!-- EmailJS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <!-- Chart.js for Kafka visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Initialize EmailJS -->
+    <script>
+        (function() {
+            emailjs.init("wzG2b0o_PNnxUZxOI");
+        })();
+    </script>
+    <!-- Your custom scripts -->
+    <script src="script.js"></script>
+    <script src="kafka-client.js"></script>
 </body>
 </html> 
