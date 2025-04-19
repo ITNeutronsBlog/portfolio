@@ -30,4 +30,7 @@ build/
 .temp/
 
 # Local development
-*.local 
+*.local
+
+# Firebase configuration
+/config/firebase-config.json 

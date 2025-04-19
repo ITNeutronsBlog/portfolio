@@ -83,16 +83,34 @@ let initializationAttempts = 0;
 const maxAttempts = 5;
 
 // Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyB1ZIQp5j_hBXJM2uC4_tJg96ZKLj5_JB8",
-    authDomain: "portfolio-cac4b.firebaseapp.com",
-    databaseURL: "https://portfolio-cac4b-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "portfolio-cac4b",
-    storageBucket: "portfolio-cac4b.firebasestorage.app",
-    messagingSenderId: "560361647150",
-    appId: "1:560361647150:web:10af52ec57c5a7e53a03bf",
-    measurementId: "G-8XWC6F64FC"
-};
+function loadFirebaseConfig() {
+    // Check if we're running locally (file://) or on a server (http://)
+    const isLocalEnvironment = window.location.protocol === 'file:';
+    
+    if (isLocalEnvironment) {
+        // For local development, use local config
+        // In production, this would be replaced with environment variables
+        console.log('Using local config');
+        return Promise.resolve({
+            apiKey: "AIzaSyB1ZIQp5j_hBXJM2uC4_tJg96ZKLj5_JB8",
+            authDomain: "portfolio-cac4b.firebaseapp.com",
+            databaseURL: "https://portfolio-cac4b-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "portfolio-cac4b",
+            storageBucket: "portfolio-cac4b.firebasestorage.app",
+            messagingSenderId: "560361647150",
+            appId: "1:560361647150:web:10af52ec57c5a7e53a03bf",
+            measurementId: "G-8XWC6F64FC"
+        });
+    } else {
+        // For server environment, fetch from secure endpoint
+        return fetch('/config/firebase-config.json')
+            .then(response => response.json())
+            .catch(error => {
+                console.error('Error loading Firebase config:', error);
+                return null;
+            });
+    }
+}
 
 function initializeFirebase() {
     if (initializationAttempts >= maxAttempts) {
@@ -101,22 +119,32 @@ function initializeFirebase() {
     }
 
     try {
-        // Initialize Firebase if not already initialized
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
+        loadFirebaseConfig().then(firebaseConfig => {
+            if (!firebaseConfig) {
+                console.error('Failed to load Firebase configuration');
+                return;
+            }
+            
+            // Initialize Firebase if not already initialized
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
 
-        // Check if Firebase Database is available
-        if (firebase.database) {
-            db = firebase.database();
-            console.log('Firebase Database initialized successfully');
-            initializeTracking();
-            return;
-        }
+            // Check if Firebase Database is available
+            if (firebase.database) {
+                db = firebase.database();
+                console.log('Firebase Database initialized successfully');
+                initializeTracking();
+                
+                // Reapply cookie settings if previously set
+                reapplyCookieSettings();
+                return;
+            }
 
-        // If not ready yet, retry
-        initializationAttempts++;
-        setTimeout(initializeFirebase, 1000);
+            // If not ready yet, retry
+            initializationAttempts++;
+            setTimeout(initializeFirebase, 1000);
+        });
     } catch (error) {
         console.error('Error initializing Firebase:', error);
         initializationAttempts++;
@@ -136,13 +164,22 @@ function initializeTracking() {
         if (!db) {
             throw new Error('Firebase not initialized');
         }
-        trackVisit();
-        trackSectionViews();
-        trackScrollDepth();
-        trackInteractions();
-        trackPerformance();
-        trackErrors();
-        startReadingTimeTracking();
+        
+        // Check cookie preferences before enabling tracking
+        const cookiePreferences = getCookiePreferences();
+        
+        // Only initialize tracking if analytics cookies are accepted
+        if (cookiePreferences && cookiePreferences.analytics) {
+            trackVisit();
+            trackSectionViews();
+            trackScrollDepth();
+            trackInteractions();
+            trackPerformance();
+            trackErrors();
+            startReadingTimeTracking();
+        } else {
+            console.log('Analytics disabled due to cookie preferences');
+        }
     } catch (error) {
         console.error('Error initializing tracking:', error);
     }
@@ -742,5 +779,168 @@ function startReadingTimeTracking() {
     if (!isTracking) {
         startTime = Date.now();
         isTracking = true;
+    }
+}
+
+// Cookie Consent Management
+document.addEventListener('DOMContentLoaded', () => {
+    initCookieConsent();
+});
+
+function initCookieConsent() {
+    const cookieConsent = document.getElementById('cookie-consent');
+    const acceptCookiesBtn = document.getElementById('accept-cookies-btn');
+    const cookieSettingsBtn = document.getElementById('cookie-settings-btn');
+    const cookieSettingsModal = document.getElementById('cookie-settings-modal');
+    const closeSettingsBtn = document.getElementById('close-cookie-settings');
+    const savePreferencesBtn = document.getElementById('save-preferences-btn');
+    const analyticsCookiesToggle = document.getElementById('analytics-cookies');
+    const preferenceCookiesToggle = document.getElementById('preference-cookies');
+    
+    // Check if user has already made cookie choices
+    const cookiePreferences = getCookiePreferences();
+    
+    if (!cookiePreferences) {
+        // Show cookie banner if no preferences are set
+        setTimeout(() => {
+            cookieConsent.classList.add('show-cookie-banner');
+        }, 1000);
+    } else {
+        // Apply saved preferences
+        if (cookiePreferences.analytics) {
+            analyticsCookiesToggle.checked = true;
+            enableAnalyticsCookies();
+        }
+        
+        if (cookiePreferences.preferences) {
+            preferenceCookiesToggle.checked = true;
+            enablePreferenceCookies();
+        }
+    }
+    
+    // Accept all cookies
+    acceptCookiesBtn.addEventListener('click', () => {
+        acceptAllCookies();
+        cookieConsent.classList.remove('show-cookie-banner');
+    });
+    
+    // Open cookie settings
+    cookieSettingsBtn.addEventListener('click', () => {
+        cookieSettingsModal.classList.add('show');
+        cookieConsent.classList.remove('show-cookie-banner');
+    });
+    
+    // Close cookie settings
+    closeSettingsBtn.addEventListener('click', () => {
+        cookieSettingsModal.classList.remove('show');
+    });
+    
+    // Save preferences
+    savePreferencesBtn.addEventListener('click', () => {
+        saveCookiePreferences({
+            essential: true, // Always enabled
+            analytics: analyticsCookiesToggle.checked,
+            preferences: preferenceCookiesToggle.checked
+        });
+        
+        // Apply preferences
+        if (analyticsCookiesToggle.checked) {
+            enableAnalyticsCookies();
+        } else {
+            disableAnalyticsCookies();
+        }
+        
+        if (preferenceCookiesToggle.checked) {
+            enablePreferenceCookies();
+        } else {
+            disablePreferenceCookies();
+        }
+        
+        cookieSettingsModal.classList.remove('show');
+    });
+}
+
+function getCookiePreferences() {
+    const preferences = localStorage.getItem('cookiePreferences');
+    return preferences ? JSON.parse(preferences) : null;
+}
+
+function saveCookiePreferences(preferences) {
+    // Store preferences in localStorage
+    localStorage.setItem('cookiePreferences', JSON.stringify(preferences));
+    
+    // Set a cookie to indicate consent was given
+    const expiryDate = new Date();
+    expiryDate.setMonth(expiryDate.getMonth() + 6); // Cookie expires in 6 months
+    document.cookie = `cookieConsent=true; expires=${expiryDate.toUTCString()}; path=/; SameSite=Lax`;
+    
+    // If Firebase is initialized, enable analytics immediately
+    // Otherwise, they'll be enabled when Firebase initializes via reapplyCookieSettings
+    if (db && preferences.analytics) {
+        enableAnalyticsCookies();
+    }
+}
+
+function acceptAllCookies() {
+    // Enable all cookie types
+    saveCookiePreferences({
+        essential: true,
+        analytics: true,
+        preferences: true
+    });
+    
+    // Apply all cookie types
+    enableAnalyticsCookies();
+    enablePreferenceCookies();
+}
+
+function enableAnalyticsCookies() {
+    // Only enable analytics if Firebase is initialized
+    if (!db) {
+        console.log('Firebase not initialized, analytics cookies will be enabled when Firebase is ready');
+        return;
+    }
+    
+    // Enable tracking functions if they exist
+    if (typeof trackVisit === 'function') trackVisit();
+    if (typeof trackSectionViews === 'function') trackSectionViews();
+    if (typeof trackScrollDepth === 'function') trackScrollDepth();
+    if (typeof trackInteractions === 'function') trackInteractions();
+    if (typeof trackPerformance === 'function') trackPerformance();
+}
+
+function disableAnalyticsCookies() {
+    // Code to disable analytics (e.g., remove Google Analytics, etc.)
+    console.log('Analytics cookies disabled');
+}
+
+function enablePreferenceCookies() {
+    // Enable theme preference storage
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        const themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle) {
+            themeToggle.checked = savedTheme === 'dark';
+        }
+    }
+}
+
+function disablePreferenceCookies() {
+    // Disable preference cookies by removing them
+    localStorage.removeItem('theme');
+}
+
+// Function to reapply cookie settings after Firebase is initialized
+function reapplyCookieSettings() {
+    const cookiePreferences = getCookiePreferences();
+    if (cookiePreferences) {
+        if (cookiePreferences.analytics) {
+            enableAnalyticsCookies();
+        }
+        
+        if (cookiePreferences.preferences) {
+            enablePreferenceCookies();
+        }
     }
 } 

@@ -384,5 +384,67 @@
     </script>
     <!-- Your custom script -->
     <script src="script.js"></script>
+
+    <!-- Cookie Consent Banner -->
+    <div id="cookie-consent" class="cookie-consent">
+        <div class="cookie-content">
+            <div class="cookie-text">
+                <h3>Cookie Notice</h3>
+                <p>This website uses cookies to ensure you get the best experience. By continuing to use this site, you consent to our use of cookies.</p>
+            </div>
+            <div class="cookie-buttons">
+                <button id="cookie-settings-btn" class="cookie-settings-btn">Cookie Settings</button>
+                <button id="accept-cookies-btn" class="accept-cookies-btn">Accept All</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cookie Settings Modal -->
+    <div id="cookie-settings-modal" class="modal cookie-settings-modal">
+        <div class="modal-content cookie-settings-content">
+            <span class="close-modal" id="close-cookie-settings">&times;</span>
+            <h2>Cookie Settings</h2>
+            <p>Manage your cookie preferences. Essential cookies are necessary for the website to function properly and cannot be disabled.</p>
+            
+            <div class="cookie-options">
+                <div class="cookie-option">
+                    <div class="option-header">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="essential-cookies" checked disabled>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <h4>Essential Cookies</h4>
+                    </div>
+                    <p>These cookies are necessary for the website to function properly and cannot be disabled.</p>
+                </div>
+                
+                <div class="cookie-option">
+                    <div class="option-header">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="analytics-cookies">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <h4>Analytics Cookies</h4>
+                    </div>
+                    <p>These cookies help us understand how visitors interact with our website, helping us improve our services.</p>
+                </div>
+                
+                <div class="cookie-option">
+                    <div class="option-header">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="preference-cookies">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <h4>Preference Cookies</h4>
+                    </div>
+                    <p>These cookies allow the website to remember choices you make and provide enhanced features.</p>
+                </div>
+            </div>
+            
+            <div class="cookie-actions">
+                <button id="save-preferences-btn" class="save-preferences-btn">Save Preferences</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html> 

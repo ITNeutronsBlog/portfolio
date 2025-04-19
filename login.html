@@ -94,36 +94,78 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     
     <script>
-        // Your web app's Firebase configuration
-        // Replace this configuration with the one from your Firebase Console
-        const firebaseConfig = {
-    apiKey: "AIzaSyB1ZIQp5j_hBXJM2uC4_tJg96ZKLj5_JB8",
-    authDomain: "portfolio-cac4b.firebaseapp.com",
-    databaseURL: "https://portfolio-cac4b-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "portfolio-cac4b",
-    storageBucket: "portfolio-cac4b.firebasestorage.app",
-    messagingSenderId: "560361647150",
-    appId: "1:560361647150:web:10af52ec57c5a7e53a03bf",
-    measurementId: "G-8XWC6F64FC"
-  };
-
-        // Initialize Firebase
-        try {
-            firebase.initializeApp(firebaseConfig);
-            console.log('Firebase initialized successfully');
-        } catch (error) {
-            console.error('Firebase initialization error:', error);
-            document.getElementById('error-message').textContent = 'Failed to initialize Firebase';
-            document.getElementById('error-message').style.display = 'block';
+        // Load Firebase configuration from external file
+        async function loadFirebaseConfig() {
+            try {
+                // Check if we're running locally (file://) or on a server (http://)
+                const isLocalEnvironment = window.location.protocol === 'file:';
+                
+                if (isLocalEnvironment) {
+                    // For local development, use local config
+                    console.log('Using local config');
+                    return {
+                        apiKey: "AIzaSyB1ZIQp5j_hBXJM2uC4_tJg96ZKLj5_JB8",
+                        authDomain: "portfolio-cac4b.firebaseapp.com",
+                        databaseURL: "https://portfolio-cac4b-default-rtdb.asia-southeast1.firebasedatabase.app",
+                        projectId: "portfolio-cac4b",
+                        storageBucket: "portfolio-cac4b.firebasestorage.app",
+                        messagingSenderId: "560361647150",
+                        appId: "1:560361647150:web:10af52ec57c5a7e53a03bf",
+                        measurementId: "G-8XWC6F64FC"
+                    };
+                } else {
+                    // For server environment, fetch from secure endpoint
+                    const response = await fetch('/config/firebase-config.json');
+                    if (!response.ok) {
+                        throw new Error('Failed to load Firebase configuration');
+                    }
+                    return await response.json();
+                }
+            } catch (error) {
+                console.error('Error loading Firebase config:', error);
+                document.getElementById('error-message').textContent = 'Failed to load Firebase configuration';
+                document.getElementById('error-message').style.display = 'block';
+                return null;
+            }
         }
 
-        // Check if already logged in
-        firebase.auth().onAuthStateChanged(user => {
-            console.log('Auth state changed:', user ? 'User logged in' : 'No user');
-            if (user) {
-                window.location.href = 'admin.html';
+        // Initialize Firebase with loaded config
+        async function initializeFirebase() {
+            try {
+                const firebaseConfig = await loadFirebaseConfig();
+                if (!firebaseConfig) {
+                    return false;
+                }
+                
+                firebase.initializeApp(firebaseConfig);
+                console.log('Firebase initialized successfully');
+                return true;
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                document.getElementById('error-message').textContent = 'Failed to initialize Firebase';
+                document.getElementById('error-message').style.display = 'block';
+                return false;
             }
-        });
+        }
+
+        // Start app initialization
+        async function initializeApp() {
+            const initialized = await initializeFirebase();
+            if (!initialized) {
+                return;
+            }
+            
+            // Check if already logged in
+            firebase.auth().onAuthStateChanged(user => {
+                console.log('Auth state changed:', user ? 'User logged in' : 'No user');
+                if (user) {
+                    window.location.href = 'admin.html';
+                }
+            });
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializeApp);
 
         // Handle login form submission
         document.getElementById('login-form').addEventListener('submit', async (e) => {
