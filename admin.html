@@ -52,6 +52,10 @@
                         <i class="fas fa-users"></i>
                         <span>HR Visitors</span>
                     </li>
+                    <li class="nav-item" data-section="location-stats">
+                        <i class="fas fa-globe"></i>
+                        <span>Locations</span>
+                    </li>
                     <li class="nav-item" data-section="portfolio-editor">
                         <i class="fas fa-edit"></i>
                         <span>Portfolio Editor</span>
@@ -119,6 +123,14 @@
                     <div class="chart-container">
                         <h3>Scroll Depth</h3>
                         <canvas id="scrollChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Location Stats Section -->
+                <div class="card" id="location-stats-container">
+                    <h3 class="stats-heading">Visitors by Location</h3>
+                    <div class="location-table-container">
+                        <p class="loading-indicator">Loading location data...</p>
                     </div>
                 </div>
             </div>
@@ -300,10 +312,37 @@
                 </div>
             </div>
 
-            <!-- Location Stats Section -->
-            <div class="dashboard-card wide-card" id="location-stats-container">
-                <h3 class="stats-heading">Visitors by Location</h3>
-                <p class="loading-indicator">Loading location data...</p>
+            <div class="section-container" id="location-stats">
+                <div class="card">
+                    <h2>Location Statistics</h2>
+                    <div class="stats-overview">
+                        <div class="stat-box">
+                            <h3>Total Countries</h3>
+                            <p id="total-countries">0</p>
+                        </div>
+                        <div class="stat-box">
+                            <h3>Most Active Country</h3>
+                            <p id="top-country">-</p>
+                        </div>
+                    </div>
+                    
+                    <div class="location-table-container">
+                        <h3>Visitors by Location</h3>
+                        <div id="location-stats-container">
+                            <p class="loading">Loading location data...</p>
+                        </div>
+                        <table class="data-table" id="location-stats-table">
+                            <thead>
+                                <tr>
+                                    <th>Country</th>
+                                    <th>Visits</th>
+                                    <th>Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -608,6 +647,21 @@
         
         .deploy-btn:hover {
             background: #388E3C;
+        }
+        
+        /* Location stats specific styles */
+        .map-container {
+            margin: 20px 0;
+            height: 400px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #eee;
+        }
+        
+        .world-map {
+            width: 100%;
+            height: 100%;
         }
     </style>
     

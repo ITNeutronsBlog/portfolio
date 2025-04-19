@@ -19,9 +19,8 @@ function checkDependencies() {
 let db = null;
 
 function loadFirebaseConfig() {
-    // Always use local config to avoid the HTTP fetch issues
     console.log('Using local Firebase config');
-    return Promise.resolve({
+        return Promise.resolve({
     apiKey: "AIzaSyB1ZIQp5j_hBXJM2uC4_tJg96ZKLj5_JB8",
     authDomain: "portfolio-cac4b.firebaseapp.com",
     databaseURL: "https://portfolio-cac4b-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -42,7 +41,36 @@ async function initializeFirebase() {
             return false;
         }
         
+        // Initialize Firebase if not already initialized
+        if (!firebase.apps.length) {
+            // Initialize the core app first
 firebase.initializeApp(firebaseConfig);
+            
+            // After core initialization, set up auth persistence
+            if (window.location.protocol === 'file:') {
+                try {
+                    await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                } catch (error) {
+                    console.warn('Auth persistence fallback to memory:', error);
+                }
+            }
+        }
+
+        // Initialize database reference
+        db = firebase.database();
+        
+        // Set up offline persistence for database
+        if (db) {
+            db.goOnline();
+            db.ref('.info/connected').on('value', function(snap) {
+                if (snap.val() === true) {
+                    console.log('Connected to Firebase Database');
+                } else {
+                    console.log('Disconnected from Firebase Database');
+                }
+            });
+        }
+
         return true;
     } catch (error) {
         console.error('Error initializing Firebase:', error);
@@ -52,42 +80,78 @@ firebase.initializeApp(firebaseConfig);
 
 // Initialize app after loading config
 async function initializeApp() {
+    try {
     // Verify all required libraries are loaded
     if (!checkDependencies()) {
-        console.error('Unable to initialize app due to missing dependencies');
-        return;
+            throw new Error('Unable to initialize app due to missing dependencies');
     }
     
     const initialized = await initializeFirebase();
     if (!initialized) {
-        console.error('Failed to initialize Firebase');
-        return;
-    }
-    
-    // Set the global db variable
-    db = firebase.database();
+            throw new Error('Failed to initialize Firebase');
+        }
 
-// Check authentication
-firebase.auth().onAuthStateChanged(user => {
+        // Set up authentication state observer
+        firebase.auth().onAuthStateChanged(async (user) => {
+            try {
     if (!user) {
+                    // If we're in a file:// environment, try silent sign-in first
+                    if (window.location.protocol === 'file:') {
+                        try {
+                            // Attempt to sign in anonymously for local testing
+                            await firebase.auth().signInAnonymously();
+                            console.log('Signed in anonymously for local testing');
+                        } catch (error) {
+                            console.error('Anonymous auth failed:', error);
         window.location.href = 'login.html';
-    }
-});
+                            return;
+                        }
+                    } else {
+                        window.location.href = 'login.html';
+                        return;
+                    }
+                }
+                
+                console.log('User is authenticated');
+                setupNavigation();
+                await initializeDashboard();
+                
+            } catch (error) {
+                console.error('Error in auth state change:', error);
+            }
+        });
 
-// Setup logout
-document.getElementById('logout-btn').addEventListener('click', () => {
-    firebase.auth().signOut();
-});
-    
-    // First set up navigation so UI is responsive immediately
-    setupNavigation();
-    
-    // Then initialize dashboard (which might take longer)
-    initializeDashboard();
+        // Setup logout with proper cleanup
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    await firebase.auth().signOut();
+                    // Clear any local data if needed
+                    localStorage.removeItem('firebase:host:portfolio-cac4b-default-rtdb.asia-southeast1.firebasedatabase.app');
+                } catch (error) {
+                    console.error('Error signing out:', error);
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error('App initialization error:', error);
+        // Show error to user
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = 'Failed to initialize application. Please refresh the page or contact support.';
+        document.body.insertBefore(errorDiv, document.body.firstChild);
+    }
 }
 
 // Start initialization when DOM is loaded
-document.addEventListener('DOMContentLoaded', initializeApp);
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Starting app initialization...');
+    initializeApp().catch(error => {
+        console.error('Failed to start app:', error);
+    });
+});
 
 // Initialize all charts and data listeners
 async function initializeDashboard() {
@@ -1806,549 +1870,6 @@ function renderSkills(category) {
 // Setup portfolio editor with deployment functionality
 function setupPortfolioEditor() {
     console.log('Setting up Portfolio Editor...');
-    // Make sure we have global state
-    window.currentSkills = window.currentSkills || { categories: {} };
-    window.currentProjects = window.currentProjects || [];
-    window.currentCategory = window.currentCategory || '';
-
-    setupEditorTabs();
-    loadPortfolioData();
-    setupFormSubmissions();
-    
-    // Set up Add Category Button
-    const addCategoryBtn = document.getElementById('add-category-btn');
-    if (addCategoryBtn) {
-        addCategoryBtn.addEventListener('click', () => {
-            const categoryName = prompt('Enter category name:');
-            if (categoryName?.trim()) {
-                if (!window.currentSkills.categories[categoryName]) {
-                    window.currentSkills.categories[categoryName] = [];
-                    renderSkillCategories();
-                    selectCategory(categoryName);
-                } else {
-                    showErrorMessage('Category already exists');
-                }
-            }
-        });
-    }
-
-    // Set up Add Skill Button
-    const addSkillBtn = document.getElementById('add-skill-btn');
-    if (addSkillBtn) {
-        addSkillBtn.addEventListener('click', () => {
-            if (!window.currentCategory) {
-                showErrorMessage('Please select a category first');
-                return;
-            }
-            
-            const skillName = prompt('Enter skill name:');
-            if (skillName?.trim()) {
-                if (!window.currentSkills.categories[window.currentCategory].includes(skillName)) {
-                    window.currentSkills.categories[window.currentCategory].push(skillName);
-                    renderSkills(window.currentCategory);
-                } else {
-                    showErrorMessage('Skill already exists in this category');
-                }
-            }
-        });
-    }
-
-    // Save Skills Button
-    const saveSkillsBtn = document.getElementById('save-skills-btn');
-    if (saveSkillsBtn) {
-        saveSkillsBtn.addEventListener('click', () => {
-            if (Object.keys(window.currentSkills.categories).length === 0) {
-                showErrorMessage('Please add at least one category with skills');
-                return;
-            }
-            
-            db.ref('portfolioData/skills').set({categories: window.currentSkills.categories})
-                .then(() => showSuccessMessage('Skills updated successfully'))
-                .catch(error => showErrorMessage('Error updating skills: ' + error.message));
-        });
-    }
-    
-    // Add Project Button
-    const addProjectBtn = document.getElementById('add-project-btn');
-    if (addProjectBtn) {
-        addProjectBtn.addEventListener('click', () => {
-            showProjectForm();
-        });
-    }
-    
-    setupDeployButton();
-    
-    console.log('Portfolio Editor setup complete');
-}
-
-// Function to show project form 
-function showProjectForm(project = null) {
-    // Check if form already exists
-    let projectForm = document.getElementById('project-form');
-    
-    if (!projectForm) {
-        // Create form if it doesn't exist
-        const projectsEditor = document.getElementById('projects-editor');
-        if (!projectsEditor) return;
-        
-        const formDiv = document.createElement('div');
-        formDiv.className = 'project-form-container';
-        formDiv.innerHTML = `
-            <h4>${project ? 'Edit' : 'Add'} Project</h4>
-            <form id="project-form" class="project-form">
-                <input type="hidden" id="project-id">
-                <div class="form-group">
-                    <label>Project Name</label>
-                    <input type="text" id="project-name" required>
-                </div>
-                <div class="form-group">
-                    <label>Description</label>
-                    <textarea id="project-description" rows="4" required></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Image URL</label>
-                    <input type="url" id="project-image">
-                </div>
-                <div class="form-group">
-                    <label>Live Demo URL</label>
-                    <input type="url" id="project-url">
-                </div>
-                <div class="form-group">
-                    <label>GitHub URL</label>
-                    <input type="url" id="project-github">
-                </div>
-                <div class="form-group">
-                    <label>Technologies (comma-separated)</label>
-                    <input type="text" id="project-tech">
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="admin-btn">
-                        <i class="fas fa-save"></i> Save Project
-                    </button>
-                    <button type="button" id="cancel-project-btn" class="secondary-btn">
-                        <i class="fas fa-times"></i> Cancel
-                    </button>
-                </div>
-            </form>
-        `;
-        
-        projectsEditor.appendChild(formDiv);
-        projectForm = document.getElementById('project-form');
-        
-        // Add event listeners
-        document.getElementById('cancel-project-btn').addEventListener('click', hideProjectForm);
-        
-        projectForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            const projectData = validateAndGetProjectData();
-            if (!projectData) return;
-            
-            const projectId = document.getElementById('project-id').value;
-            
-            if (projectId) {
-                // Update existing project
-                const index = window.currentProjects.findIndex(p => p.id === projectId);
-                if (index !== -1) {
-                    window.currentProjects[index] = { ...projectData, id: projectId };
-                }
-            } else {
-                // Add new project
-                const newId = 'project_' + Date.now();
-                window.currentProjects.push({ ...projectData, id: newId });
-            }
-            
-            saveProjects(window.currentProjects);
-            hideProjectForm();
-            renderProjects(window.currentProjects);
-        });
-    }
-    
-    // Fill form if editing existing project
-    if (project) {
-        document.getElementById('project-id').value = project.id || '';
-        document.getElementById('project-name').value = project.name || '';
-        document.getElementById('project-description').value = project.description || '';
-        document.getElementById('project-image').value = project.image || '';
-        document.getElementById('project-url').value = project.url || '';
-        document.getElementById('project-github').value = project.github || '';
-        document.getElementById('project-tech').value = project.technologies || '';
-    } else {
-        // Clear form for new project
-        document.getElementById('project-id').value = '';
-        document.getElementById('project-name').value = '';
-        document.getElementById('project-description').value = '';
-        document.getElementById('project-image').value = '';
-        document.getElementById('project-url').value = '';
-        document.getElementById('project-github').value = '';
-        document.getElementById('project-tech').value = '';
-    }
-    
-    // Show form
-    document.querySelector('.project-form-container').style.display = 'block';
-    document.getElementById('projects-list').style.display = 'none';
-    document.getElementById('add-project-btn').style.display = 'none';
-}
-
-// Function to hide project form
-function hideProjectForm() {
-    const formContainer = document.querySelector('.project-form-container');
-    if (formContainer) {
-        formContainer.style.display = 'none';
-    }
-    
-    document.getElementById('projects-list').style.display = 'block';
-    document.getElementById('add-project-btn').style.display = 'inline-block';
-}
-
-// Function to validate and get project data
-function validateAndGetProjectData() {
-    const name = document.getElementById('project-name').value.trim();
-    const description = document.getElementById('project-description').value.trim();
-    
-    if (!name) {
-        showErrorMessage('Please enter a project name');
-        return null;
-    }
-    
-    if (!description) {
-        showErrorMessage('Please enter a project description');
-        return null;
-    }
-    
-    return {
-        name,
-        description,
-        image: document.getElementById('project-image').value.trim(),
-        url: document.getElementById('project-url').value.trim(),
-        github: document.getElementById('project-github').value.trim(),
-        technologies: document.getElementById('project-tech').value.trim()
-    };
-}
-
-// Function to render projects
-function renderProjects(projects) {
-    const projectsList = document.getElementById('projects-list');
-    if (!projectsList) return;
-    
-    projectsList.innerHTML = '';
-    
-    if (!projects || projects.length === 0) {
-        projectsList.innerHTML = '<p>No projects added yet. Click "Add New Project" to get started.</p>';
-        return;
-    }
-    
-    projects.forEach(project => {
-        const projectDiv = document.createElement('div');
-        projectDiv.className = 'project-item';
-        projectDiv.innerHTML = `
-            <div class="project-header">
-                <h3>${escapeHtml(project.name || '')}</h3>
-                <div class="project-actions">
-                    <button class="icon-btn edit-project" data-id="${project.id}">
-                        <i class="fas fa-pencil-alt"></i>
-                    </button>
-                    <button class="icon-btn delete-project" data-id="${project.id}">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-            <p>${escapeHtml(project.description || '')}</p>
-            <div class="project-meta">
-                ${project.technologies ? `<div class="project-tech-tags">${project.technologies.split(',').map(tech => `<span>${escapeHtml(tech.trim())}</span>`).join('')}</div>` : ''}
-                <div class="project-links">
-                    ${project.url ? `<a href="${project.url}" target="_blank" class="project-link"><i class="fas fa-external-link-alt"></i> Demo</a>` : ''}
-                    ${project.github ? `<a href="${project.github}" target="_blank" class="project-link"><i class="fab fa-github"></i> GitHub</a>` : ''}
-                </div>
-            </div>
-        `;
-        
-        // Add edit handler
-        projectDiv.querySelector('.edit-project').addEventListener('click', () => {
-            showProjectForm(project);
-        });
-        
-        // Add delete handler
-        projectDiv.querySelector('.delete-project').addEventListener('click', () => {
-            if (confirm(`Delete project "${project.name}"?`)) {
-                window.currentProjects = window.currentProjects.filter(p => p.id !== project.id);
-                saveProjects(window.currentProjects);
-                renderProjects(window.currentProjects);
-            }
-        });
-        
-        projectsList.appendChild(projectDiv);
-    });
-}
-
-// Function to save projects
-function saveProjects(projects) {
-    db.ref('portfolioData/projects').set(projects)
-        .then(() => showSuccessMessage('Projects updated successfully'))
-        .catch(error => showErrorMessage('Error updating projects: ' + error.message));
-}
-
-// Helper function to safely escape HTML
-function escapeHtml(str) {
-    if (!str) return '';
-    return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-// Setup form submissions with validation and error handling
-function setupFormSubmissions() {
-    // Hero Form
-    const heroForm = document.getElementById('hero-form');
-    if (heroForm) {
-        heroForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            const heroData = {
-                name: document.getElementById('hero-name')?.value?.trim() || '',
-                tagline: document.getElementById('hero-tagline')?.value?.trim() || '',
-                bio: document.getElementById('hero-bio')?.value?.trim() || '',
-                lastUpdated: firebase.database.ServerValue.TIMESTAMP
-            };
-            
-            if (!heroData.name) {
-                showErrorMessage('Please enter your name');
-                return;
-            }
-            
-            db.ref('portfolioData/hero').set(heroData)
-                .then(() => showSuccessMessage('Hero section updated successfully'))
-                .catch(error => showErrorMessage('Error updating hero section: ' + error.message));
-        });
-    }
-    
-    // About Form
-    const aboutForm = document.getElementById('about-form');
-    if (aboutForm) {
-        aboutForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            const aboutData = {
-                content: document.getElementById('about-content')?.value?.trim() || '',
-                resumeLink: document.getElementById('resume-link')?.value?.trim() || '',
-                lastUpdated: firebase.database.ServerValue.TIMESTAMP
-            };
-            
-            if (!aboutData.content) {
-                showErrorMessage('Please enter about content');
-                return;
-            }
-            
-            db.ref('portfolioData/about').set(aboutData)
-                .then(() => showSuccessMessage('About section updated successfully'))
-                .catch(error => showErrorMessage('Error updating about section: ' + error.message));
-        });
-    }
-    
-    // Contact Form
-    const contactForm = document.getElementById('contact-form');
-    if (contactForm) {
-        contactForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('contact-email')?.value?.trim() || '';
-            if (!email || !isValidEmail(email)) {
-                showErrorMessage('Please enter a valid email address');
-                return;
-            }
-            
-            const contactData = {
-                email: email,
-                linkedin: document.getElementById('contact-linkedin')?.value?.trim() || '',
-                github: document.getElementById('contact-github')?.value?.trim() || '',
-                twitter: document.getElementById('contact-twitter')?.value?.trim() || '',
-                lastUpdated: firebase.database.ServerValue.TIMESTAMP
-            };
-            
-            db.ref('portfolioData/contact').set(contactData)
-                .then(() => showSuccessMessage('Contact information updated successfully'))
-                .catch(error => showErrorMessage('Error updating contact information: ' + error.message));
-        });
-    }
-}
-
-// Helper function to validate email
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-}
-
-// Setup deployment functionality
-function setupDeployButton() {
-    const deployBtn = document.getElementById('deploy-portfolio');
-    if (deployBtn) {
-        deployBtn.addEventListener('click', async () => {
-            try {
-                showMessage('Deploying changes...', 'info');
-                
-                // Get all portfolio data from Firebase
-                const snapshot = await db.ref('portfolioData').once('value');
-                const portfolioData = snapshot.val() || {};
-                
-                // Generate the index.html content
-                const htmlContent = generatePortfolioHTML(portfolioData);
-                
-                // Save to deployed_content instead of using / or . in the path
-                await db.ref('deployed_content/html').set(htmlContent);
-                
-                // Update deployment timestamp
-                await db.ref('deploymentInfo').set({
-                    lastDeployed: firebase.database.ServerValue.TIMESTAMP,
-                    status: 'success',
-                    filename: 'index.html'
-                });
-                
-                showMessage('Changes deployed successfully!', 'success');
-    } catch (error) {
-                console.error('Deployment error:', error);
-                showMessage('Error deploying changes: ' + error.message, 'error');
-            }
-        });
-    }
-}
-
-// Generate HTML for the portfolio
-function generatePortfolioHTML(data) {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${data.hero?.name || 'Portfolio'}</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
-<body>
-    <!-- Hero Section -->
-    <section id="hero" class="hero-section">
-        <div class="container">
-            <h1>${data.hero?.name || ''}</h1>
-            <h2>${data.hero?.tagline || ''}</h2>
-            <p>${data.hero?.bio || ''}</p>
-        </div>
-    </section>
-
-    <!-- About Section -->
-    <section id="about" class="about-section">
-        <div class="container">
-            <h2>About Me</h2>
-            <div class="about-content">
-                <p>${data.about?.content || ''}</p>
-                ${data.about?.resumeLink ? `<a href="${data.about.resumeLink}" class="resume-btn" target="_blank">View Resume</a>` : ''}
-            </div>
-        </div>
-    </section>
-
-    <!-- Skills Section -->
-    <section id="skills" class="skills-section">
-        <div class="container">
-            <h2>Skills</h2>
-            <div class="skills-grid">
-                ${generateSkillsHTML(data.skills)}
-            </div>
-        </div>
-    </section>
-
-    <!-- Projects Section -->
-    <section id="projects" class="projects-section">
-        <div class="container">
-            <h2>Projects</h2>
-            <div class="projects-grid">
-                ${generateProjectsHTML(data.projects)}
-            </div>
-        </div>
-    </section>
-
-    <!-- Contact Section -->
-    <section id="contact" class="contact-section">
-        <div class="container">
-            <h2>Contact</h2>
-            <div class="contact-links">
-                ${generateContactHTML(data.contact)}
-            </div>
-        </div>
-    </section>
-</body>
-</html>`;
-}
-
-// Helper function to generate skills HTML
-function generateSkillsHTML(skills = {}) {
-    if (!skills.categories) return '';
-    
-    return Object.entries(skills.categories)
-        .map(([category, skillsList]) => `
-            <div class="skills-category">
-                <h3>${category}</h3>
-                <ul>
-                    ${skillsList.map(skill => `<li>${skill}</li>`).join('')}
-                </ul>
-            </div>
-        `).join('');
-}
-
-// Helper function to generate projects HTML
-function generateProjectsHTML(projects = []) {
-    if (!Array.isArray(projects)) return '';
-    
-    return projects.map(project => `
-        <div class="project-card">
-            ${project.image ? `<img src="${project.image}" alt="${project.name}">` : ''}
-            <h3>${project.name}</h3>
-            <p>${project.description}</p>
-            <div class="project-links">
-                ${project.url ? `<a href="${project.url}" target="_blank">Live Demo</a>` : ''}
-                ${project.github ? `<a href="${project.github}" target="_blank">GitHub</a>` : ''}
-            </div>
-            <div class="project-tech">
-                ${project.technologies ? project.technologies.split(',').map(tech => `<span>${tech.trim()}</span>`).join('') : ''}
-            </div>
-        </div>
-    `).join('');
-}
-
-// Helper function to generate contact HTML
-function generateContactHTML(contact = {}) {
-    const links = [];
-    
-    if (contact.email) {
-        links.push(`<a href="mailto:${contact.email}" class="contact-link">
-            <i class="fas fa-envelope"></i> Email
-        </a>`);
-    }
-    
-    if (contact.linkedin) {
-        links.push(`<a href="${contact.linkedin}" class="contact-link" target="_blank">
-            <i class="fab fa-linkedin"></i> LinkedIn
-        </a>`);
-    }
-    
-    if (contact.github) {
-        links.push(`<a href="${contact.github}" class="contact-link" target="_blank">
-            <i class="fab fa-github"></i> GitHub
-        </a>`);
-    }
-    
-    if (contact.twitter) {
-        links.push(`<a href="${contact.twitter}" class="contact-link" target="_blank">
-            <i class="fab fa-twitter"></i> Twitter
-        </a>`);
-    }
-    
-    return links.join('');
-}
-
-// Setup portfolio editor initialization
-function setupPortfolioEditor() {
-    console.log('Setting up Portfolio Editor...');
     
     // Check if the enhanced editor is loaded
     if (typeof window.initializePortfolioEditor === 'function') {
@@ -2378,145 +1899,491 @@ function setupPortfolioEditor() {
 
 // Setup location stats
 async function setupLocationStats() {
+    console.log('Setting up location stats...');
+    
+    // Try both possible containers since there are two with similar IDs
+    let locationStatsContainer = document.getElementById('location-stats-container');
+    const overviewContainer = document.querySelector('.location-table-container');
+    
+    // Pick the right container based on which section is visible
+    const isLocationSectionVisible = document.getElementById('location-stats').style.display === 'block';
+    if (isLocationSectionVisible) {
+        console.log('Using dedicated location stats container');
+    } else {
+        console.log('Using overview location stats container');
+        if (overviewContainer) {
+            locationStatsContainer = overviewContainer;
+        }
+    }
+    
+    if (!locationStatsContainer) {
+        console.error('Location stats container not found in either section');
+        return;
+    }
+
     try {
-        // Reference to location data
-        const locationRef = db.ref('analytics/locationVisits');
+        locationStatsContainer.innerHTML = '<p class="loading">Loading location data...</p>';
         
-        // Get location data
-        const snapshot = await locationRef.once('value');
-        if (!snapshot.exists()) {
-            console.log('No location data available');
-            return;
+        console.log('Fetching location data from Firebase...');
+        // Get both location visits and detailed location data
+        const [visitsSnapshot, detailsSnapshot, backupSnapshot] = await Promise.all([
+            db.ref('analytics/locationVisits').once('value'),
+            db.ref('analytics/locationDetails').once('value'),
+            db.ref('visits/locations').once('value')
+        ]);
+
+        console.log('Location visits data received:', visitsSnapshot.exists() ? 'Yes' : 'No');
+        console.log('Location details data received:', detailsSnapshot.exists() ? 'Yes' : 'No');
+        console.log('Backup location data received:', backupSnapshot.exists() ? 'Yes' : 'No');
+        
+        // Use main data source or fallback to backup if main is empty
+        let locationVisits = visitsSnapshot.val() || {};
+        if (Object.keys(locationVisits).length === 0 && backupSnapshot.exists()) {
+            locationVisits = backupSnapshot.val() || {};
         }
         
-        const locationData = snapshot.val();
-        const locationContainer = document.getElementById('location-stats-container');
+        // Log the raw location visits data for debugging
+        console.log('Raw locationVisits data:', JSON.stringify(locationVisits));
         
-        if (!locationContainer) {
-            console.error('Location stats container not found');
-            return;
-        }
+        const locationDetails = [];
         
-        // Clear any existing content
-        locationContainer.innerHTML = '';
-        
-        // Create a heading
-        const heading = document.createElement('h3');
-        heading.textContent = 'Visitors by Location';
-        heading.className = 'stats-heading';
-        locationContainer.appendChild(heading);
-        
-        // Create a container for the map
-        const mapContainer = document.createElement('div');
-        mapContainer.id = 'world-map';
-        mapContainer.className = 'world-map';
-        locationContainer.appendChild(mapContainer);
-        
-        // Create a container for the location table
-        const tableContainer = document.createElement('div');
-        tableContainer.className = 'location-table-container';
-        locationContainer.appendChild(tableContainer);
-        
-        // Create a table for the location data
-        const table = document.createElement('table');
-        table.className = 'location-table';
-        tableContainer.appendChild(table);
-        
-        // Create table header
-        const thead = document.createElement('thead');
-        table.appendChild(thead);
-        
-        const headerRow = document.createElement('tr');
-        thead.appendChild(headerRow);
-        
-        ['Country', 'Visits', 'Percentage'].forEach(text => {
-            const th = document.createElement('th');
-            th.textContent = text;
-            headerRow.appendChild(th);
+        // Process detailed location data if it exists
+        detailsSnapshot.forEach(child => {
+            const detail = child.val();
+            if (detail && detail.country) {
+                locationDetails.push(detail);
+            }
         });
+
+        console.log('Processed location data:', {
+            visitsCount: Object.keys(locationVisits).length,
+            detailsCount: locationDetails.length
+        });
+
+        // If we have no data, show a message
+        if (Object.keys(locationVisits).length === 0 && locationDetails.length === 0) {
+            locationStatsContainer.innerHTML = '<p>No location data available yet. This could be because no visitors have been tracked with location data, or the data is stored in a different database path.</p>';
+            return;
+        }
+
+        // Create stats overview
+        const statsOverview = document.createElement('div');
+        statsOverview.className = 'location-stats-overview';
         
-        // Create table body
-        const tbody = document.createElement('tbody');
-        table.appendChild(tbody);
-        
-        // Calculate total visits
+        // Calculate total visits - fixed calculation
         let totalVisits = 0;
-        Object.values(locationData).forEach(count => {
-            if (typeof count === 'number') {
-                totalVisits += count;
+        // Log each value for debugging
+        Object.entries(locationVisits).forEach(([country, visits]) => {
+            const numVisits = Number(visits);
+            console.log(`Country ${country}: ${visits} (as number: ${numVisits})`);
+            if (!isNaN(numVisits)) {
+                totalVisits += numVisits;
             }
         });
         
-        // Process location data and add to table
-        const locationEntries = Object.entries(locationData)
-            .filter(([country, count]) => typeof count === 'number')
-            .sort((a, b) => b[1] - a[1]); // Sort by visit count descending
+        const uniqueCountries = parseInt(new Set(locationDetails.map(d => d.country)).size) || 0;
+        const uniqueCities = parseInt(new Set(locationDetails.filter(d => d.city && d.country).map(d => `${d.city}, ${d.country}`)).size) || 0;
         
-        locationEntries.forEach(([country, count]) => {
-            const row = document.createElement('tr');
-            tbody.appendChild(row);
-            
-            // Country cell
-            const countryCell = document.createElement('td');
-            countryCell.textContent = getCountryName(country);
-            row.appendChild(countryCell);
-            
-            // Visits cell
-            const visitsCell = document.createElement('td');
-            visitsCell.textContent = count;
-            row.appendChild(visitsCell);
-            
-            // Percentage cell
-            const percentageCell = document.createElement('td');
-            const percentage = ((count / totalVisits) * 100).toFixed(1);
-            percentageCell.textContent = `${percentage}%`;
-            row.appendChild(percentageCell);
+        console.log('Calculated stats:', { totalVisits, uniqueCountries, uniqueCities });
+        
+        statsOverview.innerHTML = `
+            <div class="stat-card">
+                <h4>Total Visits</h4>
+                <p>${totalVisits}</p>
+            </div>
+            <div class="stat-card">
+                <h4>Unique Countries</h4>
+                <p>${uniqueCountries}</p>
+            </div>
+            <div class="stat-card">
+                <h4>Unique Cities</h4>
+                <p>${uniqueCities}</p>
+            </div>
+        `;
+
+        // Create world map visualization
+        const worldMapContainer = document.createElement('div');
+        worldMapContainer.className = 'world-map-container';
+        worldMapContainer.innerHTML = `
+            <div class="map-header">
+                <h3>Global Visitor Distribution</h3>
+                <div class="map-controls">
+                    <button id="zoom-in-btn" class="map-btn"><i class="fas fa-search-plus"></i></button>
+                    <button id="zoom-out-btn" class="map-btn"><i class="fas fa-search-minus"></i></button>
+                    <button id="reset-map-btn" class="map-btn"><i class="fas fa-undo"></i></button>
+                </div>
+            </div>
+            <div class="map-wrapper">
+                <canvas id="worldMap" width="800" height="400"></canvas>
+            </div>
+            <div class="map-summary">
+                <div class="country-count-box">
+                    <span id="country-count">${Object.keys(locationVisits).length}</span> countries
+                </div>
+            </div>
+        `;
+
+        // Create country-level stats table with percentages
+        const countryTable = document.createElement('div');
+        countryTable.className = 'location-stats-section';
+        countryTable.innerHTML = `
+            <h3>Visits by Country</h3>
+            <table class="location-stats-table">
+                <thead>
+                    <tr>
+                        <th>Country</th>
+                        <th>Percentage</th>
+                        <th>Visits</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        `;
+
+        // Add country rows
+        const countryTbody = countryTable.querySelector('tbody');
+        const sortedCountries = Object.entries(locationVisits).sort(([, a], [, b]) => {
+            return Number(b) - Number(a);
         });
+
+        // Array to store map data
+        const mapData = [];
         
-        // If you want to show cities within countries
-        // You can expand this to display city-level data
-        
-        // Optionally, initialize a world map visualization here
-        // This would require a mapping library like jVectorMap or Google Maps
-        
-        console.log('Location stats displayed successfully');
+        // Country code to coordinates mapping for the map
+        const countryCoordinates = {
+            // North America
+            US: { lat: 37.0902, lng: -95.7129 }, // United States
+            CA: { lat: 56.1304, lng: -106.3468 }, // Canada
+            MX: { lat: 23.6345, lng: -102.5528 }, // Mexico
+            
+            // Europe
+            GB: { lat: 55.3781, lng: -3.4360 }, // United Kingdom
+            DE: { lat: 51.1657, lng: 10.4515 }, // Germany
+            FR: { lat: 46.2276, lng: 2.2137 }, // France
+            IT: { lat: 41.8719, lng: 12.5674 }, // Italy
+            ES: { lat: 40.4637, lng: -3.7492 }, // Spain
+            NL: { lat: 52.1326, lng: 5.2913 }, // Netherlands
+            RU: { lat: 61.5240, lng: 105.3188 }, // Russia
+            
+            // Asia
+            CN: { lat: 35.8617, lng: 104.1954 }, // China
+            JP: { lat: 36.2048, lng: 138.2529 }, // Japan
+            IN: { lat: 22.3511, lng: 78.6677 }, // India - Updated coordinates
+            KR: { lat: 35.9078, lng: 127.7669 }, // South Korea
+            AU: { lat: -25.2744, lng: 133.7751 }, // Australia
+            
+            // South America
+            BR: { lat: -14.2350, lng: -51.9253 }, // Brazil
+            AR: { lat: -38.4161, lng: -63.6167 }, // Argentina
+            
+            // Africa
+            ZA: { lat: -30.5595, lng: 22.9375 }, // South Africa
+            EG: { lat: 26.8206, lng: 30.8025 }, // Egypt
+            NG: { lat: 9.0820, lng: 8.6753 }, // Nigeria
+        };
+
+        for (const [country, visits] of sortedCountries) {
+            const visitsNum = Number(visits) || 0;
+            const percentage = totalVisits > 0 ? ((visitsNum / totalVisits) * 100).toFixed(1) : '0.0';
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${getCountryName(country)}</td>
+                <td>${percentage}% <span class="visit-count">(${visitsNum})</span></td>
+                <td>${visitsNum}</td>
+            `;
+            countryTbody.appendChild(row);
+            
+            // Add to map data if coordinates exist
+            if (countryCoordinates[country]) {
+                mapData.push({
+                    country: country,
+                    name: getCountryName(country),
+                    coordinates: countryCoordinates[country],
+                    visits: visitsNum,
+                    percentage: percentage
+                });
+            }
+        }
+
+        // Only show city data if we have detailed location info
+        if (locationDetails.length > 0) {
+            // Create city-level stats table
+            const cityTable = document.createElement('div');
+            cityTable.className = 'location-stats-section';
+            cityTable.innerHTML = `
+                <h3>Visits by City</h3>
+                <table class="location-stats-table">
+                    <thead>
+                        <tr>
+                            <th>City</th>
+                            <th>Region</th>
+                            <th>Country</th>
+                            <th>Visits</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            `;
+
+            // Process city-level data
+            const cityVisits = {};
+            locationDetails.forEach(detail => {
+                if (detail.city && detail.region && detail.country) {
+                    const key = `${detail.city}, ${detail.region}, ${detail.country}`;
+                    cityVisits[key] = (cityVisits[key] || 0) + 1;
+                }
+            });
+
+            // Add city rows
+            const cityTbody = cityTable.querySelector('tbody');
+            const sortedCities = Object.entries(cityVisits).sort(([, a], [, b]) => Number(b) - Number(a));
+
+            for (const [cityKey, visits] of sortedCities) {
+                const [city, region, country] = cityKey.split(', ');
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${escapeHtml(city || '-')}</td>
+                    <td>${escapeHtml(region || '-')}</td>
+                    <td>${getCountryName(country)}</td>
+                    <td>${Number(visits) || 0}</td>
+                `;
+                cityTbody.appendChild(row);
+            }
+
+            // Clear container and add new elements in order
+            locationStatsContainer.innerHTML = '';
+            locationStatsContainer.appendChild(statsOverview);
+            locationStatsContainer.appendChild(worldMapContainer);
+            locationStatsContainer.appendChild(countryTable);
+            locationStatsContainer.appendChild(cityTable);
+            
+            // Initialize map after DOM elements are added
+            setTimeout(() => {
+                initializeWorldMap(mapData, totalVisits);
+            }, 100);
+        } else {
+            // Just show country data if we don't have city data
+            locationStatsContainer.innerHTML = '';
+            locationStatsContainer.appendChild(statsOverview);
+            locationStatsContainer.appendChild(worldMapContainer);
+            locationStatsContainer.appendChild(countryTable);
+            
+            // Initialize map after DOM elements are added
+            setTimeout(() => {
+                initializeWorldMap(mapData, totalVisits);
+            }, 100);
+        }
+
+        console.log('Location stats successfully set up');
+
     } catch (error) {
         console.error('Error setting up location stats:', error);
+        locationStatsContainer.innerHTML = `
+            <p class="error">Error loading location data: ${error.message}</p>
+            <p>Please check the browser console for more details.</p>
+        `;
     }
 }
 
-// Helper function to convert country codes to names
-function getCountryName(countryCode) {
-    const countryCodes = {
-        'US': 'United States',
-        'GB': 'United Kingdom',
-        'CA': 'Canada',
-        'AU': 'Australia',
-        'IN': 'India',
-        'DE': 'Germany',
-        'FR': 'France',
-        'JP': 'Japan',
-        'CN': 'China',
-        'BR': 'Brazil',
-        'RU': 'Russia',
-        'ZA': 'South Africa',
-        'MX': 'Mexico',
-        'ES': 'Spain',
-        'IT': 'Italy',
-        'NL': 'Netherlands',
-        'SG': 'Singapore',
-        'SE': 'Sweden',
-        'CH': 'Switzerland',
-        'NO': 'Norway',
-        'DK': 'Denmark',
-        'FI': 'Finland',
-        'NZ': 'New Zealand',
-        'IE': 'Ireland',
-        'AT': 'Austria',
-        'BE': 'Belgium',
-        'KR': 'South Korea',
-        // Add more country codes as needed
-    };
+// Initialize world map visualization
+function initializeWorldMap(mapData, totalVisits) {
+    console.log('Initializing world map with data:', mapData);
     
-    return countryCodes[countryCode] || countryCode;
+    const mapWrapper = document.querySelector('.map-wrapper');
+    if (!mapWrapper) {
+        console.error('Map wrapper not found');
+        return;
+    }
+    
+    try {
+        // Clear the map wrapper and add background + canvas
+        mapWrapper.innerHTML = '';
+        
+        // Add background world map image
+        const mapBg = document.createElement('div');
+        mapBg.className = 'world-map-bg';
+        mapWrapper.appendChild(mapBg);
+        
+        // Create canvas for data points
+        const canvas = document.createElement('canvas');
+        canvas.id = 'worldMap';
+        canvas.style.position = 'relative';
+        canvas.style.zIndex = '2';
+        mapWrapper.appendChild(canvas);
+        
+        // Check if Chart.js is available
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js library not loaded');
+            mapWrapper.innerHTML = '<div class="error-message">Chart.js library is not loaded</div>';
+            return;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        
+        // Configure chart data
+        const chartData = {
+            datasets: [{
+                label: 'Visitor Distribution',
+                data: mapData.map(country => ({
+                    x: country.coordinates.lng,
+                    y: country.coordinates.lat,
+                    r: calculateBubbleSize(country.visits, totalVisits),
+                    country: country.name,
+                    visits: country.visits,
+                    percentage: country.percentage
+                })),
+                backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1,
+                hoverBackgroundColor: 'rgba(75, 192, 192, 0.9)',
+                hoverBorderColor: 'rgba(75, 192, 192, 1)',
+                hoverBorderWidth: 2
+            }]
+        };
+        
+        // Create chart with improved options
+        window.visitorMap = new Chart(ctx, {
+            type: 'bubble',
+            data: chartData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        min: -180,
+                        max: 180,
+                        grid: {
+                            display: false,
+                            drawBorder: false
+                        },
+                        ticks: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        min: -90,
+                        max: 90,
+                        grid: {
+                            display: false,
+                            drawBorder: false
+                        },
+                        ticks: {
+                            display: false
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleFont: {
+                            size: 16
+                        },
+                        bodyFont: {
+                            size: 14
+                        },
+                        padding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                const data = context.raw;
+                                return `${data.country}: ${data.visits} visits (${data.percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 1000
+                }
+            }
+        });
+        
+        // Add map zoom controls functionality
+        const zoomInBtn = document.getElementById('zoom-in-btn');
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', () => {
+                zoomMap(1.2);
+            });
+        }
+        
+        const zoomOutBtn = document.getElementById('zoom-out-btn');
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', () => {
+                zoomMap(0.8);
+            });
+        }
+        
+        const resetMapBtn = document.getElementById('reset-map-btn');
+        if (resetMapBtn) {
+            resetMapBtn.addEventListener('click', () => {
+                resetMap();
+            });
+        }
+        
+        console.log('World map initialized successfully');
+    } catch (error) {
+        console.error('Error initializing world map:', error);
+        mapWrapper.innerHTML = `<div class="error-message">Error initializing map: ${error.message}</div>`;
+    }
+}
+
+// Helper function to calculate bubble size based on visit count
+function calculateBubbleSize(visits, totalVisits) {
+    // Base size
+    const minSize = 5;
+    const maxSize = 30;
+    
+    if (totalVisits === 0) return minSize;
+    
+    // Calculate size based on percentage of total, but ensure minimum visibility
+    const percentage = visits / totalVisits;
+    return Math.max(minSize, Math.min(maxSize, minSize + (percentage * 100)));
+}
+
+// Map zoom functions
+let currentZoom = { x: { min: -180, max: 180 }, y: { min: -90, max: 90 } };
+
+function zoomMap(factor) {
+    if (!window.visitorMap) return;
+    
+    const xCenter = (currentZoom.x.min + currentZoom.x.max) / 2;
+    const yCenter = (currentZoom.y.min + currentZoom.y.max) / 2;
+    const xRange = (currentZoom.x.max - currentZoom.x.min) / 2;
+    const yRange = (currentZoom.y.max - currentZoom.y.min) / 2;
+    
+    currentZoom.x.min = xCenter - (xRange / factor);
+    currentZoom.x.max = xCenter + (xRange / factor);
+    currentZoom.y.min = yCenter - (yRange / factor);
+    currentZoom.y.max = yCenter + (yRange / factor);
+    
+    window.visitorMap.options.scales.x.min = currentZoom.x.min;
+    window.visitorMap.options.scales.x.max = currentZoom.x.max;
+    window.visitorMap.options.scales.y.min = currentZoom.y.min;
+    window.visitorMap.options.scales.y.max = currentZoom.y.max;
+    
+    window.visitorMap.update();
+}
+
+function resetMap() {
+    if (!window.visitorMap) return;
+    
+    currentZoom = { x: { min: -180, max: 180 }, y: { min: -90, max: 90 } };
+    
+    window.visitorMap.options.scales.x.min = currentZoom.x.min;
+    window.visitorMap.options.scales.x.max = currentZoom.x.max;
+    window.visitorMap.options.scales.y.min = currentZoom.y.min;
+    window.visitorMap.options.scales.y.max = currentZoom.y.max;
+    
+    window.visitorMap.update();
+}
+
+function getCountryName(countryCode) {
+    try {
+        const displayNames = new Intl.DisplayNames(['en'], { type: 'region' });
+        return displayNames.of(countryCode) || countryCode;
+    } catch (error) {
+        // Fallback for browsers that don't support Intl.DisplayNames
+        return countryCode;
+    }
 }
