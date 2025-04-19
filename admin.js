@@ -1875,7 +1875,7 @@ function setupPortfolioEditor() {
     if (typeof window.initializePortfolioEditor === 'function') {
         // Enhanced editor is loaded, it will handle the initialization
         console.log('Enhanced Portfolio Editor loaded');
-    } else {
+                } else {
         // Fallback if enhanced editor is not loaded
         const editorContainer = document.getElementById('portfolio-editor');
         if (editorContainer) {
@@ -1909,7 +1909,7 @@ async function setupLocationStats() {
     const isLocationSectionVisible = document.getElementById('location-stats').style.display === 'block';
     if (isLocationSectionVisible) {
         console.log('Using dedicated location stats container');
-    } else {
+                } else {
         console.log('Using overview location stats container');
         if (overviewContainer) {
             locationStatsContainer = overviewContainer;
@@ -1918,9 +1918,9 @@ async function setupLocationStats() {
     
     if (!locationStatsContainer) {
         console.error('Location stats container not found in either section');
-        return;
-    }
-
+                return;
+            }
+            
     try {
         locationStatsContainer.innerHTML = '<p class="loading">Loading location data...</p>';
         
@@ -1990,15 +1990,15 @@ async function setupLocationStats() {
             <div class="stat-card">
                 <h4>Total Visits</h4>
                 <p>${totalVisits}</p>
-            </div>
+                </div>
             <div class="stat-card">
                 <h4>Unique Countries</h4>
                 <p>${uniqueCountries}</p>
-            </div>
+                </div>
             <div class="stat-card">
                 <h4>Unique Cities</h4>
                 <p>${uniqueCities}</p>
-            </div>
+                </div>
         `;
 
         // Create world map visualization
@@ -2012,10 +2012,10 @@ async function setupLocationStats() {
                     <button id="zoom-out-btn" class="map-btn"><i class="fas fa-search-minus"></i></button>
                     <button id="reset-map-btn" class="map-btn"><i class="fas fa-undo"></i></button>
                 </div>
-            </div>
+                </div>
             <div class="map-wrapper">
                 <canvas id="worldMap" width="800" height="400"></canvas>
-            </div>
+                </div>
             <div class="map-summary">
                 <div class="country-count-box">
                     <span id="country-count">${Object.keys(locationVisits).length}</span> countries
@@ -2215,9 +2215,9 @@ function initializeWorldMap(mapData, totalVisits) {
         if (typeof Chart === 'undefined') {
             console.error('Chart.js library not loaded');
             mapWrapper.innerHTML = '<div class="error-message">Chart.js library is not loaded</div>';
-            return;
-        }
-        
+                return;
+            }
+            
         const ctx = canvas.getContext('2d');
         
         // Configure chart data
