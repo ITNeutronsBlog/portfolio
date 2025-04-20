@@ -43,34 +43,15 @@ async function initializeFirebase() {
         
         // Initialize Firebase if not already initialized
         if (!firebase.apps.length) {
-            // Initialize the core app first
-firebase.initializeApp(firebaseConfig);
-            
-            // After core initialization, set up auth persistence
-            if (window.location.protocol === 'file:') {
-                try {
-                    await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-                } catch (error) {
-                    console.warn('Auth persistence fallback to memory:', error);
-                }
-            }
+            firebase.initializeApp(firebaseConfig);
         }
 
         // Initialize database reference
         db = firebase.database();
         
-        // Set up offline persistence for database
-        if (db) {
-            db.goOnline();
-            db.ref('.info/connected').on('value', function(snap) {
-                if (snap.val() === true) {
-                    console.log('Connected to Firebase Database');
-                } else {
-                    console.log('Disconnected from Firebase Database');
-                }
-            });
-        }
-
+        // Initialize session management after Firebase is ready
+        initializeSessionManagement();
+        
         return true;
     } catch (error) {
         console.error('Error initializing Firebase:', error);
@@ -2386,4 +2367,63 @@ function getCountryName(countryCode) {
         // Fallback for browsers that don't support Intl.DisplayNames
         return countryCode;
     }
+}
+
+// Session Management
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
+let sessionTimer;
+let lastActivity;
+
+// Track user activity
+function resetSessionTimer() {
+    clearTimeout(sessionTimer);
+    lastActivity = Date.now();
+    sessionTimer = setTimeout(handleSessionTimeout, SESSION_TIMEOUT);
+    localStorage.setItem('lastActivity', lastActivity);
+}
+
+// Handle session timeout
+function handleSessionTimeout() {
+    const currentTime = Date.now();
+    const lastActivityTime = parseInt(localStorage.getItem('lastActivity')) || lastActivity;
+    
+    if (currentTime - lastActivityTime >= SESSION_TIMEOUT) {
+        // Clear session data
+        localStorage.removeItem('lastActivity');
+        clearTimeout(sessionTimer);
+        
+        // Show timeout message and redirect to login
+        showMessage('Session expired. Please log in again.', 'info');
+        setTimeout(() => {
+            firebase.auth().signOut().then(() => {
+                window.location.href = 'login.html';
+            }).catch((error) => {
+                console.error('Error signing out:', error);
+                window.location.href = 'login.html';
+            });
+        }, 2000);
+    }
+}
+
+// Initialize session management
+function initializeSessionManagement() {
+    // Reset timer on user activity
+    ['click', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
+        document.addEventListener(event, resetSessionTimer);
+    });
+    
+    // Check for existing session
+    const lastActivityTime = parseInt(localStorage.getItem('lastActivity'));
+    if (lastActivityTime && Date.now() - lastActivityTime >= SESSION_TIMEOUT) {
+        handleSessionTimeout();
+    } else {
+        resetSessionTimer();
+    }
+    
+    // Periodically check session status
+    setInterval(() => {
+        if (lastActivity && Date.now() - lastActivity >= SESSION_TIMEOUT) {
+            handleSessionTimeout();
+        }
+    }, 60000); // Check every minute
 }
